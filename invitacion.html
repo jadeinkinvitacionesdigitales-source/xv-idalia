@@ -388,6 +388,20 @@ section,.foto-full{padding-left:max(20px,11vw);padding-right:max(20px,11vw)}
 .sobre-card h1{font-size:clamp(2.2rem,11vw,4.2rem)!important}
 @media (max-width:600px){.portada h1{font-size:11.5vw!important}}
 
+/* ================= Pase personal, gracias y sugerencia de canción ================= */
+.pase{margin:14px auto 18px;max-width:340px;padding:14px 12px;border:1px solid var(--oro);outline:1px solid var(--oro);outline-offset:-6px;background:#fff;text-align:center;display:grid;gap:4px}
+.pase span{font-family:'Montserrat',sans-serif;font-size:.6rem;letter-spacing:.32em;text-transform:uppercase;color:var(--oro);font-weight:600}
+.pase b{font-family:'Cinzel',serif;font-weight:600;font-size:1.15rem;letter-spacing:.06em;color:var(--negro);overflow-wrap:anywhere}
+.pase em{font-style:normal;font-family:'Montserrat',sans-serif;font-size:.8rem;color:#555}
+.gracias{text-align:center;padding:10px 0}
+.cancion-form{display:grid;gap:10px;max-width:440px;margin:22px auto 0;text-align:left}
+.cancion-form label{font-family:'Montserrat',sans-serif;font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;color:var(--oro-claro);font-weight:600;text-align:center}
+.cancion-form input{width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.08);color:#fff;font:inherit;font-size:16px}
+.cancion-form input::placeholder{color:rgba(255,255,255,.6)}
+.cancion-form .btn{color:#fff;border-color:#fff;justify-self:center}
+.cancion-msg{min-height:1.2em;font-size:.82rem;text-align:center;color:#fff;margin:0}
+.cancion-msg.err{color:#ffb4ac}
+
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
 </style>
 </head>
@@ -554,8 +568,13 @@ section,.foto-full{padding-left:max(20px,11vw);padding-right:max(20px,11vw)}
     </div>
     <div class="botones">
       <button type="button" class="btn rosa" id="escuchar"><svg><use href="#nota"/></svg><span>Escuchar</span></button>
-      <a class="btn claro" style="color:#fff;border-color:#fff" target="_blank" rel="noopener" id="sugerir"><svg><use href="#wa"/></svg>Sugerir canción</a>
     </div>
+    <form class="cancion-form" id="cancionForm" novalidate>
+      <label for="cancionTxt">Sugiere una canción para la fiesta</label>
+      <input id="cancionTxt" maxlength="150" placeholder="Canción y artista">
+      <button type="submit" class="btn claro" id="cancionBtn"><svg><use href="#nota"/></svg><span>Sugerir canción</span></button>
+      <p class="cancion-msg" id="cancionMsg" role="status"></p>
+    </form>
   </div>
 </section>
 
@@ -585,6 +604,7 @@ section,.foto-full{padding-left:max(20px,11vw);padding-right:max(20px,11vw)}
       <p class="eyebrow">R.S.V.P.</p>
       <h2>Confirma tu asistencia</h2>
       <p class="dato">Por favor confírmame antes del <strong style="display:inline">20 de noviembre de 2026</strong>.</p>
+      <div class="pase" id="pase" hidden><span>Pase personal</span><b id="paseNombre"></b><em id="paseDet"></em></div>
       <form id="rsvp" novalidate>
         <label for="nombre">Nombre completo</label>
         <input type="text" id="nombre" autocomplete="name" placeholder="Tu nombre">
@@ -601,9 +621,10 @@ section,.foto-full{padding-left:max(20px,11vw);padding-right:max(20px,11vw)}
         <textarea id="mensajeTxt" placeholder="Escribe unas palabras…"></textarea>
         <p class="error" id="error" role="alert"></p>
         <div class="enviar">
-          <button type="submit" class="btn" data-via="wa"><svg><use href="#wa"/></svg>Confirmar por WhatsApp</button>
+          <button type="submit" class="btn" id="rsvpBtn"><svg><use href="#wa"/></svg><span>Confirmar por WhatsApp</span></button>
         </div>
       </form>
+      <div class="gracias" id="gracias" hidden><p class="eyebrow">¡Gracias!</p><p class="dato" id="graciasTxt"></p></div>
     </div>
   </div>
 </section>
@@ -629,6 +650,15 @@ section,.foto-full{padding-left:max(20px,11vw);padding-right:max(20px,11vw)}
 
 <script>
 const TEL='50762063001';
+// URL de la app web de Google Apps Script (panel). Vacía = las respuestas se envían por WhatsApp.
+const API='';
+// Enlace personal del panel: ?inv=… (id, nombre, mesa, puestos). También acepta ?invitado=Nombre
+const q=new URLSearchParams(location.search);
+const invitado=(()=>{
+  try{const raw=q.get('inv');if(raw){const g=JSON.parse(decodeURIComponent(escape(atob(raw.replace(/-/g,'+').replace(/_/g,'/')))));
+    if(g.n)return{id:String(g.i||'').slice(0,20),nombre:String(g.n).slice(0,120),mesa:String(g.m||'').slice(0,10),puestos:Math.max(0,Math.min(50,parseInt(g.p,10)||0))}}}catch(_){}
+  const n=q.get('invitado');return n?{id:'',nombre:n.slice(0,120),mesa:'',puestos:0}:null;
+})();
 const EVENTO=new Date('2026-11-29T18:00:00-05:00');
 
 // Sobre
@@ -681,7 +711,40 @@ document.getElementById('calendario').href='https://calendar.google.com/calendar
   +'&location='+encodeURIComponent('Hotel The Distrit - Salón del Área Social, Calle Eusebio A. Morales #12, El Cangrejo, Ciudad de Panamá')
   +'&details='+encodeURIComponent('Código de vestimenta: Formal (evitar rojo y negro).');
 
-document.getElementById('sugerir').href='https://wa.me/'+TEL+'?text='+encodeURIComponent('¡Hola Idalia! Te sugiero esta canción para tu noche: ');
+const enviar=data=>fetch(API,{method:'POST',body:JSON.stringify(data)}).then(r=>r.json()).then(r=>{if(!r.ok)throw new Error(r.error)});
+
+// Pase personal
+if(invitado){
+  document.getElementById('nombre').value=invitado.nombre;
+  const det=[];
+  if(invitado.puestos)det.push(invitado.puestos===1?'1 puesto reservado':invitado.puestos+' puestos reservados');
+  if(invitado.mesa)det.push('Mesa '+invitado.mesa);
+  document.getElementById('paseNombre').textContent=invitado.nombre;
+  document.getElementById('paseDet').textContent=det.join(' · ');
+  document.getElementById('pase').hidden=false;
+  if(invitado.puestos){
+    const sel=document.getElementById('cuantos');
+    sel.innerHTML=Array.from({length:invitado.puestos},(_,i)=>'<option>'+(i+1)+'</option>').join('');
+    sel.value=invitado.puestos;
+    document.querySelector('label[for=cuantos]').textContent='Número de personas (máx. '+invitado.puestos+')';
+  }
+}
+if(API){const b=document.getElementById('rsvpBtn');b.querySelector('svg').remove();b.querySelector('span').textContent='Confirmar asistencia';}
+
+// Sugerir canción
+document.getElementById('cancionForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const inp=document.getElementById('cancionTxt'),msg=document.getElementById('cancionMsg'),btn=document.getElementById('cancionBtn');
+  const cancion=inp.value.trim();msg.className='cancion-msg';
+  if(!cancion){msg.textContent='Escribe el nombre de la canción.';inp.focus();return}
+  const quien=(invitado&&invitado.nombre)||document.getElementById('nombre').value.trim();
+  if(!API){window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent('¡Hola Idalia! Te sugiero esta canción para tu noche: '+cancion+(quien?'\n— '+quien:'')),'_blank');inp.value='';return}
+  btn.disabled=true;btn.querySelector('span').textContent='Enviando…';
+  enviar({action:'song',id:invitado?invitado.id:'',nombre:quien,cancion})
+    .then(()=>{inp.value='';msg.textContent='¡Gracias! Tu canción ya está en la lista.'})
+    .catch(()=>{msg.className='cancion-msg err';msg.textContent='No se pudo enviar. Inténtalo de nuevo en un momento.'})
+    .finally(()=>{btn.disabled=false;btn.querySelector('span').textContent='Sugerir canción'});
+});
 
 // Confirmación
 const form=document.getElementById('rsvp');
@@ -700,7 +763,12 @@ form.addEventListener('submit',e=>{
   let txt='¡Hola Idalia! Soy '+nombre+'.\n';
   txt+=va?'✨ Confirmo mi asistencia a tu noche del 29 de noviembre.\nPersonas: '+cuantos:'Lamentablemente no podré asistir a tu noche del 29 de noviembre.';
   if(nota)txt+='\n\nMensaje: '+nota;
-  window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(txt),'_blank');
+  if(!API){window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(txt),'_blank');return}
+  const btn=document.getElementById('rsvpBtn');btn.disabled=true;btn.querySelector('span').textContent='Enviando…';
+  enviar({action:'rsvp',id:invitado?invitado.id:'',nombre,asistencia:va?'si':'no',personas:va?+cuantos:0,mesa:invitado?invitado.mesa:'',mensaje:nota})
+    .then(()=>{form.hidden=true;document.getElementById('gracias').hidden=false;
+      document.getElementById('graciasTxt').textContent=va?nombre+', tu asistencia quedó confirmada para '+cuantos+(cuantos==1?' persona':' personas')+'. ¡Te espero!':nombre+', recibí tu respuesta. ¡Gracias por avisarme!';})
+    .catch(()=>{err.textContent='No se pudo enviar. Inténtalo de nuevo en un momento.';btn.disabled=false;btn.querySelector('span').textContent='Confirmar asistencia'});
 });
 </script>
 </body>
